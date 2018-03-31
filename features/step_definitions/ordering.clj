@@ -1,30 +1,20 @@
 (require '[clojure.test :refer [is]])
-(require '[clojure.string :as string])
+(require '[features.support.param :as param])
+(require '[features.support.world :as world])
 (require '[order.core :as order])
 
-(def menu (atom {}))
-(def current-order (atom nil))
-
-(def lower-case-keyword (comp keyword string/lower-case))
-(def digits->number (comp read-string (partial re-find #"\d+")))
-
 (Given #"^the base price for a pizza is (\d+) €$" [price]
-  (let [price (digits->number price)]
-    (swap! menu assoc :pizza price)))
+  (let [price (param/number price)]
+    (swap! world/menu assoc :pizza price)))
 
 (Given #"^the following toppings are available for ordering:$" [toppings]
-  (let [toppings (into {}
-                       (map (fn [[k v]]
-                              {(lower-case-keyword k) (digits->number v)}))
-                       (.raw toppings))]
-    (swap! menu merge toppings)))
+  (let [toppings (param/map-of-keywords-to-numbers toppings)]
+    (swap! world/menu merge toppings)))
 
 (When #"^I order a pizza with:$" [toppings]
-  (let [toppings (into []
-                       (map (comp lower-case-keyword first))
-                       (.raw toppings))]
-    (reset! current-order (conj toppings :pizza))))
+  (let [toppings (param/list-of-keywords toppings)]
+    (reset! world/current-order (conj toppings :pizza))))
 
 (Then #"^the total price should be (\d+) €$" [total]
-  (let [total (digits->number total)]
-    (is (= total (order/total @menu @current-order)))))
+  (let [total (param/number total)]
+    (is (= total (order/total @world/menu @world/current-order)))))
